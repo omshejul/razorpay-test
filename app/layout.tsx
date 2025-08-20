@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Navbar } from "@/components/navbar";
+import Script from "next/script";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,10 +17,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "API Tester",
+  title: "Razorpay Test",
   description:
-    "Test your APIs with a clean, modern interface. Built with Next.js, React, and Tailwind CSS.",
-  keywords: ["API", "testing", "Postman", "REST", "HTTP", "developer tools"],
+    "Test Razorpay payments with a clean, modern interface. Built with Next.js, React, and Tailwind CSS.",
+  keywords: ["Razorpay", "payment", "testing", "integration", "developer tools"],
   authors: [{ name: "Om Shejul" }],
   creator: "Om Shejul",
   icons: {
@@ -44,8 +45,8 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: "API Tester",
-    description: "Test your APIs with a clean, modern interface",
+    title: "Razorpay Test",
+    description: "Test Razorpay payments with a clean, modern interface",
     type: "website",
   },
 };
@@ -69,7 +70,13 @@ export default function RootLayout({
           <Providers>
             <div className="relative flex min-h-screen flex-col">
               <Navbar />
-              <main className="flex-1">{children}</main>
+              <main className="flex-1">
+                {children}
+                <Script
+                  src="https://checkout.razorpay.com/v1/checkout.js"
+                  strategy="afterInteractive"
+                />
+              </main>
             </div>
           </Providers>
         </ThemeProvider>
