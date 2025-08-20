@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
 export default function PayButton({ amount }: { amount: number }) {
   const [loading, setLoading] = useState(false);
+  const { data: session } = useSession();
 
   async function handlePay() {
     try {
@@ -14,7 +16,10 @@ export default function PayButton({ amount }: { amount: number }) {
       const orderRes = await fetch("/api/razorpay/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount }), // rupees
+        body: JSON.stringify({
+          amount, // rupees
+          userId: session?.user?.email || null,
+        }),
       });
 
       if (!orderRes.ok) throw new Error("order failed");
@@ -49,8 +54,10 @@ export default function PayButton({ amount }: { amount: number }) {
         },
       };
 
-      const rzp = new window.Razorpay(options as any);
-      rzp.on("payment.failed", (e: any) => {
+      const rzp = new (window as { Razorpay: typeof window.Razorpay }).Razorpay(
+        options
+      );
+      rzp.on("payment.failed", (e: unknown) => {
         console.error(e);
         alert("Payment failed");
       });
@@ -64,12 +71,7 @@ export default function PayButton({ amount }: { amount: number }) {
   }
 
   return (
-    <Button
-      onClick={handlePay}
-      disabled={loading}
-      variant="default"
-      size="lg"
-    >
+    <Button onClick={handlePay} disabled={loading} variant="default" size="lg">
       {loading ? "Processing..." : `Pay ₹${amount}`}
     </Button>
   );

@@ -22,7 +22,7 @@ type RazorpayOptions = {
 
 type RazorpayInstance = new (options: RazorpayOptions) => {
   open: () => void;
-  on: (event: string, cb: (res: any) => void) => void;
+  on: (event: string, cb: (res: unknown) => void) => void;
 };
 
 declare global {

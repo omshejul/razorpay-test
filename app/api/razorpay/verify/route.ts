@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
+import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -22,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   // Create signature verification string
   const body = `${razorpay_order_id}|${razorpay_payment_id}`;
-  
+
   // Generate expected signature using HMAC SHA256
   const expected = crypto
     .createHmac("sha256", process.env.RAZORPAY_KEY_SECRET!)
@@ -32,7 +33,25 @@ export async function POST(req: NextRequest) {
   // Verify signature matches expected value
   const valid = expected === razorpay_signature;
 
-  // if valid, mark the order paid in your DB here
+  if (valid) {
+    // Update order status in database
+    const { error: updateError } = await supabase
+      .from("payment_orders")
+      .update({
+        status: "captured",
+        razorpay_payment_id: razorpay_payment_id,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("razorpay_order_id", razorpay_order_id);
+
+    if (updateError) {
+      console.error("Failed to update payment order:", updateError);
+      return NextResponse.json(
+        { valid: true, warning: "Payment verified but database update failed" },
+        { status: 200 }
+      );
+    }
+  }
 
   return NextResponse.json({ valid }, { status: 200 });
 }

@@ -3,6 +3,7 @@
 import { getProviders, signIn, getSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { ClientSafeProvider } from "next-auth/react";
 import {
   Card,
   CardContent,
@@ -13,7 +14,10 @@ import {
 import { Button } from "@/components/ui/button";
 
 export default function SignIn() {
-  const [providers, setProviders] = useState<any>(null);
+  const [providers, setProviders] = useState<Record<
+    string,
+    ClientSafeProvider
+  > | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -51,7 +55,7 @@ export default function SignIn() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {Object.values(providers).map((provider: any) => (
+          {Object.values(providers).map((provider) => (
             <Button
               key={provider.name}
               onClick={() => signIn(provider.id, { callbackUrl: "/" })}

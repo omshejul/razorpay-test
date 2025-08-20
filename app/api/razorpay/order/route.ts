@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
+import { supabase, type PaymentOrder } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
@@ -11,7 +12,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // Extract order details from request body
-    const { amount, currency = "INR", receipt } = await req.json();
+    const { amount, currency = "INR", receipt, userId } = await req.json();
 
     // Validate amount parameter
     if (!amount || Number.isNaN(Number(amount))) {
@@ -24,14 +25,37 @@ export async function POST(req: NextRequest) {
       key_secret: process.env.RAZORPAY_KEY_SECRET!,
     });
 
-    // Convert amount to paise and create order
-    const order = await razorpay.orders.create({
-      amount: Math.round(Number(amount) * 100), // Convert rupees to paise
+    const receiptId = receipt ?? `rcpt_${Date.now()}`;
+    const amountInPaise = Math.round(Number(amount) * 100);
+
+    // Create Razorpay order
+    const razorpayOrder = await razorpay.orders.create({
+      amount: amountInPaise,
       currency,
-      receipt: receipt ?? `rcpt_${Date.now()}`, // Generate receipt if not provided
+      receipt: receiptId,
     });
 
-    return NextResponse.json(order, { status: 200 });
+    // Save order to database
+    const paymentOrder: PaymentOrder = {
+      razorpay_order_id: razorpayOrder.id,
+      amount: amountInPaise,
+      currency,
+      status: "pending",
+      user_id: userId,
+      receipt: receiptId,
+    };
+
+    const { error: dbError } = await supabase
+      .from("payment_orders")
+      .insert(paymentOrder);
+
+    if (dbError) {
+      console.error("Failed to save order to database:", dbError);
+      // Still return the Razorpay order even if DB save fails
+      return NextResponse.json(razorpayOrder, { status: 200 });
+    }
+
+    return NextResponse.json(razorpayOrder, { status: 200 });
   } catch (err) {
     console.error(err);
     return NextResponse.json(
