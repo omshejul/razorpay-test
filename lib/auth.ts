@@ -1,6 +1,6 @@
 import GoogleProvider from "next-auth/providers/google";
-
-export const authOptions = {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export const authOptions: any = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -8,14 +8,16 @@ export const authOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    jwt: async ({ token, account }: any) => {
       // Persist the OAuth access_token to the token right after signin
       if (account && typeof account === "object" && "access_token" in account) {
         token.accessToken = (account as { access_token: string }).access_token;
       }
       return token;
     },
-    async session({ session, _token, _user }: any) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    session: async ({ session }: any) => {
       // Send properties to the client
       return session;
     },
