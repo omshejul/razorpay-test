@@ -18,7 +18,7 @@ export default function PayButton({ amount }: { amount: number }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount, // rupees
-          userId: session?.user?.email || null,
+          userEmail: session?.user?.email || null,
         }),
       });
 

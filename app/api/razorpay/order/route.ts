@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // Extract order details from request body
-    const { amount, currency = "INR", receipt, userId } = await req.json();
+    const { amount, currency = "INR", receipt, userEmail } = await req.json();
 
     // Validate amount parameter
     if (!amount || Number.isNaN(Number(amount))) {
@@ -34,6 +34,14 @@ export async function POST(req: NextRequest) {
       currency,
       receipt: receiptId,
     });
+
+    // Look up user UUID if email provided
+    let userId: string | undefined;
+    if (userEmail) {
+      const { data: userData } = await supabase.auth.admin.listUsers();
+      const user = userData.users?.find((u) => u.email === userEmail);
+      userId = user?.id;
+    }
 
     // Save order to database
     const paymentOrder: PaymentOrder = {
