@@ -1,6 +1,7 @@
+import type { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export const authOptions: any = {
+
+export const authOptions: NextAuthOptions = {
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
