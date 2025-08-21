@@ -138,6 +138,7 @@ export default function ProductPage() {
                 amount={selectedPlan.price}
                 planId={selectedPlan.id}
                 planName={selectedPlan.name}
+                disabled={purchasedPlanIds.length > 0}
                 onSuccess={() =>
                   setPurchasedPlanIds((prev) =>
                     prev.includes(selectedPlan.id)

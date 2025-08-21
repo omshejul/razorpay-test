@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { supabase, type PaymentOrder } from "@/lib/supabase";
 import { getPlanPricePaise, PLAN_NAMES, type PlanId } from "@/lib/pricing";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -30,6 +32,54 @@ export async function POST(req: NextRequest) {
     const amountInPaise = getPlanPricePaise(plan);
     const planName = PLAN_NAMES[plan];
 
+    // Determine effective user identity
+    type BasicUser = { email?: string | null };
+    type BasicSession = { user?: BasicUser | null };
+    const session = (await getServerSession(
+      authOptions
+    )) as BasicSession | null;
+    const effectiveEmail = session?.user?.email ?? userEmail ?? null;
+
+    // Resolve user UUID if we have an email
+    let userId: string | undefined;
+    if (effectiveEmail) {
+      const { data: userData } = await supabase.auth.admin.listUsers();
+      const user = userData.users?.find((u) => u.email === effectiveEmail);
+      userId = user?.id;
+    }
+
+    // Enforce single active subscription per user
+    if (userId || effectiveEmail) {
+      const { data: existingByUser } = userId
+        ? await supabase
+            .from("subscriptions")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .limit(1)
+        : { data: null };
+
+      const { data: existingByEmail } =
+        !existingByUser?.length && effectiveEmail
+          ? await supabase
+              .from("subscriptions")
+              .select("id")
+              .eq("email", effectiveEmail)
+              .eq("status", "active")
+              .limit(1)
+          : { data: null };
+
+      if (
+        (existingByUser && existingByUser.length > 0) ||
+        (existingByEmail && existingByEmail.length > 0)
+      ) {
+        return NextResponse.json(
+          { error: "already_subscribed" },
+          { status: 409 }
+        );
+      }
+    }
+
     // Initialize Razorpay instance with API credentials
     const razorpay = new Razorpay({
       key_id: process.env.RAZORPAY_KEY_ID!,
@@ -45,14 +95,6 @@ export async function POST(req: NextRequest) {
       receipt: receiptId,
     });
 
-    // Look up user UUID if email provided
-    let userId: string | undefined;
-    if (userEmail) {
-      const { data: userData } = await supabase.auth.admin.listUsers();
-      const user = userData.users?.find((u) => u.email === userEmail);
-      userId = user?.id;
-    }
-
     // Save order to database
     const paymentOrder: PaymentOrderInsert = {
       razorpay_order_id: razorpayOrder.id,
@@ -63,7 +105,7 @@ export async function POST(req: NextRequest) {
       receipt: receiptId,
       plan_id: plan,
       plan_name: planName,
-      email: userEmail ?? null,
+      email: effectiveEmail ?? null,
     };
 
     const { error: dbError } = await supabase

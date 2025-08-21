@@ -9,6 +9,7 @@ interface PayButtonProps {
   planId?: string;
   planName?: string;
   onSuccess?: (info: { valid: boolean; order?: unknown }) => void;
+  disabled?: boolean;
 }
 
 export default function PayButton({
@@ -16,12 +17,14 @@ export default function PayButton({
   planId,
   planName,
   onSuccess,
+  disabled,
 }: PayButtonProps) {
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const { data: session } = useSession();
 
   async function handlePay() {
+    if (disabled) return;
     try {
       setLoading(true);
 
@@ -89,11 +92,17 @@ export default function PayButton({
   return (
     <Button
       onClick={handlePay}
-      disabled={loading || completed}
+      disabled={disabled || loading || completed}
       variant="default"
       size="lg"
     >
-      {completed ? "Purchased" : loading ? "Processing..." : `Pay ₹${amount}`}
+      {completed
+        ? "Purchased"
+        : loading
+        ? "Processing..."
+        : disabled
+        ? "Already subscribed"
+        : `Pay ₹${amount}`}
     </Button>
   );
 }

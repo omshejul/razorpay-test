@@ -91,7 +91,42 @@ export async function POST(req: NextRequest) {
       updatedOrder = data;
       dbUpdated = true;
 
-      // Create subscription record (email currently unknown unless stored elsewhere)
+      // Enforce single active subscription per user/email before insert
+      if (updatedOrder.user_id || updatedOrder.email) {
+        const { data: existingByUser } = updatedOrder.user_id
+          ? await supabase
+              .from("subscriptions")
+              .select("id")
+              .eq("user_id", updatedOrder.user_id)
+              .eq("status", "active")
+              .limit(1)
+          : { data: null };
+
+        const { data: existingByEmail } =
+          !existingByUser?.length && updatedOrder.email
+            ? await supabase
+                .from("subscriptions")
+                .select("id")
+                .eq("email", updatedOrder.email)
+                .eq("status", "active")
+                .limit(1)
+            : { data: null };
+
+        if (
+          (existingByUser && existingByUser.length > 0) ||
+          (existingByEmail && existingByEmail.length > 0)
+        ) {
+          return NextResponse.json({
+            valid,
+            order: updatedOrder,
+            subscription: null,
+            dbUpdated,
+            warning: "already_subscribed",
+          });
+        }
+      }
+
+      // Create subscription record
       const { data: sub, error: subError } = await supabase
         .from("subscriptions")
         .insert({
