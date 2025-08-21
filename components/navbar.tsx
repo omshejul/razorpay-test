@@ -23,7 +23,9 @@ export function Navbar() {
       <div className="container flex h-14 items-center max-w-6xl mx-auto">
         <div className="mr-4 hidden md:flex">
           <Link href="/" className="mr-6 flex items-center space-x-2">
-            <span className="hidden font-bold sm:inline-block">OAuth App</span>
+            <span className="hidden font-bold sm:inline-block">
+              Arthkin Store
+            </span>
           </Link>
         </div>
 
@@ -33,7 +35,7 @@ export function Navbar() {
               href="/"
               className="mr-6 flex items-center space-x-2 md:hidden"
             >
-              <span className="font-bold">OAuth App</span>
+              <span className="font-bold">Arthkin Store</span>
             </Link>
           </div>
 

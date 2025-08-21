@@ -9,11 +9,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import PayButton from "@/components/razorpay/PayButton";
+import { useState } from "react";
+import ProductPage from "./product/page";
 
 export default function Home() {
   const { data: session, status } = useSession();
-  
+  const [amount, setAmount] = useState("");
+
   if (status === "loading") {
     return (
       <main className="container mx-auto px-4 py-8">
@@ -40,8 +44,7 @@ export default function Home() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold">Hello World</h1>
-      <PayButton amount={499} />
+      <ProductPage />
     </main>
   );
 }
