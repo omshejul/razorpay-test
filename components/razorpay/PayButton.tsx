@@ -8,6 +8,7 @@ interface PayButtonProps {
   amount: number; // still used for button label
   planId?: string;
   planName?: string;
+  mode?: "one_time" | "recurring";
   onSuccess?: (info: { valid: boolean; order?: unknown }) => void;
 }
 
@@ -15,6 +16,7 @@ export default function PayButton({
   amount,
   planId,
   planName,
+  mode = "one_time",
   onSuccess,
 }: PayButtonProps) {
   const [loading, setLoading] = useState(false);
@@ -25,54 +27,107 @@ export default function PayButton({
     try {
       setLoading(true);
 
-      // 1) ask server to create an order using trusted server-side pricing
-      const orderRes = await fetch("/api/razorpay/order", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          planId,
-          userEmail: session?.user?.email || null,
-        }),
-      });
+      type RazorpayOrderResp = { id: string; amount: number; currency: string };
+      type RazorpaySubscriptionResp = {
+        id: string;
+        short_url?: string;
+        status?: string;
+      };
+      let order: RazorpayOrderResp | null = null;
+      let subscription: RazorpaySubscriptionResp | null = null;
 
-      if (!orderRes.ok) throw new Error("order failed");
-      const order = await orderRes.json(); // { id, amount, currency, ... }
+      if (mode === "recurring") {
+        const subRes = await fetch("/api/razorpay/subscription", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            planId,
+            userEmail: session?.user?.email || null,
+          }),
+        });
+        if (!subRes.ok) throw new Error("subscription failed");
+        subscription = await subRes.json(); // { id, short_url, ... }
+      } else {
+        // 1) ask server to create an order using trusted server-side pricing
+        const orderRes = await fetch("/api/razorpay/order", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            planId,
+            userEmail: session?.user?.email || null,
+          }),
+        });
+        if (!orderRes.ok) throw new Error("order failed");
+        order = await orderRes.json(); // { id, amount, currency, ... }
+      }
 
       // 2) open Razorpay Checkout
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        amount: order.amount, // from server (paise)
-        currency: order.currency,
-        name: planName || "Your Store",
-        description: planName ? `${planName} subscription` : "Order payment",
-        order_id: order.id,
-        prefill: {
-          name: session?.user?.name || "User",
-          email: session?.user?.email || undefined,
-        },
-        handler: async (response: {
-          razorpay_payment_id: string;
-          razorpay_order_id: string;
-          razorpay_signature: string;
-        }) => {
-          // 3) verify signature on server
-          const verifyRes = await fetch("/api/razorpay/verify", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(response),
-          });
-          const data = await verifyRes.json();
-          if (data.valid) {
-            setCompleted(true);
-            onSuccess?.(data);
-          }
-          alert(data.valid ? "Payment verified" : "Verification failed");
-        },
-      };
+      let options: RazorpayOptions;
+      if (mode === "one_time") {
+        if (!order) throw new Error("order missing");
+        options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+          amount: order.amount,
+          currency: order.currency,
+          name: planName || "Your Store",
+          description: planName ? `${planName} subscription` : "Order payment",
+          order_id: order.id,
+          prefill: {
+            name: session?.user?.name || "User",
+            email: session?.user?.email || undefined,
+          },
+          handler: async (response) => {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...response,
+                plan_id: planId,
+                plan_name: planName,
+                userEmail: session?.user?.email || null,
+              }),
+            });
+            const data = await verifyRes.json();
+            if (data.valid) {
+              setCompleted(true);
+              onSuccess?.(data);
+            }
+            alert(data.valid ? "Payment verified" : "Verification failed");
+          },
+        };
+      } else {
+        if (!subscription) throw new Error("subscription missing");
+        options = {
+          key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
+          name: planName || "Your Store",
+          description: planName ? `${planName} subscription` : "Order payment",
+          subscription_id: subscription.id,
+          prefill: {
+            name: session?.user?.name || "User",
+            email: session?.user?.email || undefined,
+          },
+          handler: async (response) => {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                ...response,
+                plan_id: planId,
+                plan_name: planName,
+                userEmail: session?.user?.email || null,
+              }),
+            });
+            const data = await verifyRes.json();
+            if (data.valid) {
+              setCompleted(true);
+              onSuccess?.(data);
+            }
+            alert(data.valid ? "Payment verified" : "Verification failed");
+          },
+        };
+      }
 
-      const rzp = new (window as { Razorpay: typeof window.Razorpay }).Razorpay(
-        options
-      );
+      const rzp = new window.Razorpay(options);
       rzp.on("payment.failed", (e: unknown) => {
         console.error(e);
         alert("Payment failed");
@@ -93,7 +148,13 @@ export default function PayButton({
       variant="default"
       size="lg"
     >
-      {completed ? "Purchased" : loading ? "Processing..." : `Pay ₹${amount}`}
+      {completed
+        ? "Purchased"
+        : loading
+        ? "Processing..."
+        : mode === "recurring"
+        ? `Subscribe ₹${amount}/mo`
+        : `Pay ₹${amount}`}
     </Button>
   );
 }

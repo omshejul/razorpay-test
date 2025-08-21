@@ -25,5 +25,27 @@ export async function GET() {
     return NextResponse.json({ error: "db_error" }, { status: 500 });
   }
 
-  return NextResponse.json({ subscriptions: data ?? [] });
+  if ((data?.length ?? 0) > 0) {
+    return NextResponse.json({ subscriptions: data! });
+  }
+
+  // Fallback: look up active subscriptions by user_id via auth.admin if email match fails
+  // Requires service role key (already used for supabase client)
+  const { data: users } = await supabase.auth.admin.listUsers();
+  const user = users.users?.find((u) => u.email === email);
+  if (!user) {
+    return NextResponse.json({ subscriptions: [] });
+  }
+
+  const { data: byUser, error: byUserErr } = await supabase
+    .from("subscriptions")
+    .select("plan_id, plan_name, status, created_at")
+    .eq("user_id", user.id)
+    .eq("status", "active");
+
+  if (byUserErr) {
+    return NextResponse.json({ error: "db_error" }, { status: 500 });
+  }
+
+  return NextResponse.json({ subscriptions: byUser ?? [] });
 }

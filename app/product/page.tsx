@@ -34,7 +34,7 @@ const plans = [
 
 export default function ProductPage() {
   const [selectedPlan, setSelectedPlan] = useState(plans[1]); // Default to Pro plan
-  const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null);
+  const [purchasedPlanIds, setPurchasedPlanIds] = useState<string[]>([]);
 
   useEffect(() => {
     let isMounted = true;
@@ -46,8 +46,10 @@ export default function ProductPage() {
         console.log("subscriptions", json);
         const subs: Array<{ plan_id: string; status: string }> =
           json.subscriptions || [];
-        const active = subs.find((s) => s.status === "active");
-        if (isMounted && active) setPurchasedPlanId(active.plan_id);
+        const activeIds = subs
+          .filter((s) => s.status === "active")
+          .map((s) => s.plan_id);
+        if (isMounted) setPurchasedPlanIds(activeIds);
       } finally {
         // no-op
       }
@@ -76,13 +78,13 @@ export default function ProductPage() {
                 selectedPlan.id === plan.id
                   ? "ring-2 ring-primary border-primary"
                   : "hover:border-primary/50"
-              } ${purchasedPlanId === plan.id ? "opacity-60" : ""}`}
+              } ${purchasedPlanIds.includes(plan.id) ? "opacity-60" : ""}`}
               onClick={() => setSelectedPlan(plan)}
             >
               <CardHeader>
                 <CardTitle className="text-xl flex items-center justify-between">
                   <span>{plan.name}</span>
-                  {purchasedPlanId === plan.id && (
+                  {purchasedPlanIds.includes(plan.id) && (
                     <span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5">
                       Purchased
                     </span>
@@ -132,7 +134,14 @@ export default function ProductPage() {
                 amount={selectedPlan.price}
                 planId={selectedPlan.id}
                 planName={selectedPlan.name}
-                onSuccess={() => setPurchasedPlanId(selectedPlan.id)}
+                mode="recurring"
+                onSuccess={() =>
+                  setPurchasedPlanIds((prev) =>
+                    prev.includes(selectedPlan.id)
+                      ? prev
+                      : [...prev, selectedPlan.id]
+                  )
+                }
               />
             </div>
           </CardContent>

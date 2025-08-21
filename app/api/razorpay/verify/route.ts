@@ -12,6 +12,9 @@ interface PaymentOrderRow {
   currency: string;
   status: string;
   user_id: string | null;
+  email: string | null;
+  plan_id: string | null;
+  plan_name: string | null;
   receipt: string;
   created_at: string;
   updated_at: string;
@@ -38,11 +41,22 @@ interface SubscriptionRow {
  * @returns NextResponse with verification status and order info
  */
 export async function POST(req: NextRequest) {
-  const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
-    await req.json();
+  const {
+    razorpay_order_id,
+    razorpay_subscription_id,
+    razorpay_payment_id,
+    razorpay_signature,
+    plan_id: clientPlanId,
+    plan_name: clientPlanName,
+    userEmail,
+  } = await req.json();
 
   // Validate required fields
-  if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+  if (
+    (!razorpay_order_id && !razorpay_subscription_id) ||
+    !razorpay_payment_id ||
+    !razorpay_signature
+  ) {
     return NextResponse.json(
       { valid: false, reason: "missing fields" },
       { status: 400 }
@@ -50,7 +64,9 @@ export async function POST(req: NextRequest) {
   }
 
   // Create signature verification string
-  const body = `${razorpay_order_id}|${razorpay_payment_id}`;
+  const body = razorpay_order_id
+    ? `${razorpay_order_id}|${razorpay_payment_id}`
+    : `${razorpay_subscription_id}|${razorpay_payment_id}`;
 
   // Generate expected signature using HMAC SHA256
   const expected = crypto
@@ -67,36 +83,65 @@ export async function POST(req: NextRequest) {
   let subscription: SubscriptionRow | null = null;
 
   if (valid) {
-    // Update order status in database and return updated row
-    const { data, error: updateError } = await supabase
-      .from("payment_orders")
-      .update({
-        status: "captured",
-        razorpay_payment_id: razorpay_payment_id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("razorpay_order_id", razorpay_order_id)
-      .select(
-        "id, razorpay_order_id, razorpay_payment_id, amount, currency, status, user_id, receipt, created_at, updated_at"
-      )
-      .single<PaymentOrderRow>();
+    if (razorpay_order_id) {
+      // One-time order capture + subscription insert for record
+      const { data, error: updateError } = await supabase
+        .from("payment_orders")
+        .update({
+          status: "captured",
+          razorpay_payment_id: razorpay_payment_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("razorpay_order_id", razorpay_order_id)
+        .select(
+          "id, razorpay_order_id, razorpay_payment_id, amount, currency, status, user_id, email, plan_id, plan_name, receipt, created_at, updated_at"
+        )
+        .single<PaymentOrderRow>();
 
-    if (updateError) {
-      console.error("Failed to update payment order:", updateError);
-      dbWarning = "Payment verified but database update failed";
-    } else if (data) {
-      updatedOrder = data;
-      dbUpdated = true;
+      if (updateError) {
+        console.error("Failed to update payment order:", updateError);
+        dbWarning = "Payment verified but database update failed";
+      } else if (data) {
+        updatedOrder = data;
+        dbUpdated = true;
 
-      // Create subscription record (email currently unknown unless stored elsewhere)
+        const { data: sub, error: subError } = await supabase
+          .from("subscriptions")
+          .insert({
+            user_id: updatedOrder.user_id ?? null,
+            email: updatedOrder.email ?? null,
+            plan_id: updatedOrder.plan_id ?? "one-time",
+            plan_name: updatedOrder.plan_name ?? "Manual Plan",
+            razorpay_order_id,
+            razorpay_payment_id,
+            status: "active",
+          })
+          .select()
+          .single<SubscriptionRow>();
+
+        if (subError) {
+          console.error("Failed to create subscription:", subError);
+        } else {
+          subscription = sub;
+        }
+      }
+    } else if (razorpay_subscription_id) {
+      // Recurring subscription flow: directly insert subscription record
+      // Resolve user_id from email if provided
+      let userId: string | null = null;
+      if (userEmail) {
+        const { data: userData } = await supabase.auth.admin.listUsers();
+        const user = userData.users?.find((u) => u.email === userEmail);
+        userId = user?.id ?? null;
+      }
+
       const { data: sub, error: subError } = await supabase
         .from("subscriptions")
         .insert({
-          user_id: updatedOrder.user_id ?? null,
-          email: null,
-          plan_id: "one-time",
-          plan_name: "Manual Plan",
-          razorpay_order_id,
+          user_id: userId,
+          email: userEmail ?? null,
+          plan_id: clientPlanId ?? "recurring",
+          plan_name: clientPlanName ?? "Recurring Plan",
           razorpay_payment_id,
           status: "active",
         })
@@ -107,6 +152,7 @@ export async function POST(req: NextRequest) {
         console.error("Failed to create subscription:", subError);
       } else {
         subscription = sub;
+        dbUpdated = true;
       }
     }
   }
