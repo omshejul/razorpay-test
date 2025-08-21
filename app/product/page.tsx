@@ -99,7 +99,7 @@ export default function ProductPage() {
               <CardContent>
                 <div className="text-center space-y-2">
                   <p className="text-3xl font-bold">₹{plan.price}</p>
-                  <p className="text-sm text-muted-foreground">per month</p>
+                  <p className="text-sm text-muted-foreground">one-time</p>
                 </div>
               </CardContent>
             </Card>
