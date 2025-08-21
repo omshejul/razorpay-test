@@ -9,14 +9,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import PayButton from "@/components/razorpay/PayButton";
-import { useState } from "react";
 import ProductPage from "./product/page";
 
 export default function Home() {
   const { data: session, status } = useSession();
-  const [amount, setAmount] = useState("");
 
   if (status === "loading") {
     return (
