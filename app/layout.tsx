@@ -4,6 +4,7 @@ import "./globals.css";
 import Providers from "@/components/providers/session-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
 import Script from "next/script";
 
 const geistSans = Geist({
@@ -20,7 +21,13 @@ export const metadata: Metadata = {
   title: "Razorpay Test",
   description:
     "Test Razorpay payments with a clean, modern interface. Built with Next.js, React, and Tailwind CSS.",
-  keywords: ["Razorpay", "payment", "testing", "integration", "developer tools"],
+  keywords: [
+    "Razorpay",
+    "payment",
+    "testing",
+    "integration",
+    "developer tools",
+  ],
   authors: [{ name: "Om Shejul" }],
   creator: "Om Shejul",
   icons: {
@@ -77,6 +84,7 @@ export default function RootLayout({
                   strategy="afterInteractive"
                 />
               </main>
+              <Footer />
             </div>
           </Providers>
         </ThemeProvider>
