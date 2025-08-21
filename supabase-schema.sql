@@ -67,3 +67,54 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_payment_orders_updated_at 
   BEFORE UPDATE ON payment_orders 
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Subscriptions table to store plan subscriptions
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id),
+  email TEXT,
+  plan_id TEXT NOT NULL,
+  plan_name TEXT NOT NULL,
+  razorpay_order_id TEXT,
+  razorpay_payment_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','canceled','expired')),
+  started_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  expires_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_subscriptions_email ON subscriptions(email);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_plan ON subscriptions(plan_id);
+
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+
+-- Users can view their own subscriptions
+CREATE POLICY "Users can view their subscriptions" ON subscriptions
+  FOR SELECT USING (auth.uid() = user_id);
+
+-- Service role can manage all subscriptions
+CREATE POLICY "Service role manage subscriptions" ON subscriptions
+  FOR ALL USING (auth.role() = 'service_role');
+
+-- trigger to update updated_at
+grant usage on schema public to postgres, anon, authenticated, service_role;
+CREATE OR REPLACE FUNCTION update_subscriptions_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+CREATE TRIGGER update_subscriptions_updated_at
+  BEFORE UPDATE ON subscriptions
+  FOR EACH ROW EXECUTE FUNCTION update_subscriptions_updated_at();
+
+-- Add plan and email fields to payment_orders if missing
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS plan_id TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS plan_name TEXT;
+ALTER TABLE payment_orders ADD COLUMN IF NOT EXISTS email TEXT;
+
+CREATE INDEX IF NOT EXISTS idx_payment_orders_plan ON payment_orders(plan_id);
+CREATE INDEX IF NOT EXISTS idx_payment_orders_email ON payment_orders(email);

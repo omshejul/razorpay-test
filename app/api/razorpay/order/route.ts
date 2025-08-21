@@ -1,8 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import Razorpay from "razorpay";
 import { supabase, type PaymentOrder } from "@/lib/supabase";
+import { getPlanPricePaise, PLAN_NAMES, type PlanId } from "@/lib/pricing";
 
 export const runtime = "nodejs";
+
+type PaymentOrderInsert = PaymentOrder & {
+  plan_id?: string | null;
+  plan_name?: string | null;
+  email?: string | null;
+};
 
 /**
  * Creates a new Razorpay order
@@ -12,12 +19,16 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // Extract order details from request body
-    const { amount, currency = "INR", receipt, userEmail } = await req.json();
+    const { planId, currency = "INR", receipt, userEmail } = await req.json();
 
-    // Validate amount parameter
-    if (!amount || Number.isNaN(Number(amount))) {
-      return NextResponse.json({ error: "amount required" }, { status: 400 });
+    // Validate plan parameter
+    if (!planId || !["basic", "pro", "premium"].includes(planId)) {
+      return NextResponse.json({ error: "invalid plan" }, { status: 400 });
     }
+
+    const plan = planId as PlanId;
+    const amountInPaise = getPlanPricePaise(plan);
+    const planName = PLAN_NAMES[plan];
 
     // Initialize Razorpay instance with API credentials
     const razorpay = new Razorpay({
@@ -26,7 +37,6 @@ export async function POST(req: NextRequest) {
     });
 
     const receiptId = receipt ?? `rcpt_${Date.now()}`;
-    const amountInPaise = Math.round(Number(amount) * 100);
 
     // Create Razorpay order
     const razorpayOrder = await razorpay.orders.create({
@@ -44,13 +54,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Save order to database
-    const paymentOrder: PaymentOrder = {
+    const paymentOrder: PaymentOrderInsert = {
       razorpay_order_id: razorpayOrder.id,
       amount: amountInPaise,
       currency,
       status: "pending",
       user_id: userId,
       receipt: receiptId,
+      plan_id: plan,
+      plan_name: planName,
+      email: userEmail ?? null,
     };
 
     const { error: dbError } = await supabase

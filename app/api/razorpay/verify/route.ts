@@ -4,10 +4,38 @@ import { supabase } from "@/lib/supabase";
 
 export const runtime = "nodejs";
 
+interface PaymentOrderRow {
+  id: string;
+  razorpay_order_id: string;
+  razorpay_payment_id: string | null;
+  amount: number;
+  currency: string;
+  status: string;
+  user_id: string | null;
+  receipt: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface SubscriptionRow {
+  id: string;
+  user_id: string | null;
+  email: string | null;
+  plan_id: string;
+  plan_name: string;
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
+  status: string;
+  started_at: string;
+  expires_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /**
  * Verifies a Razorpay payment signature to ensure payment authenticity
  * @param req - NextRequest containing payment verification details
- * @returns NextResponse with verification status
+ * @returns NextResponse with verification status and order info
  */
 export async function POST(req: NextRequest) {
   const { razorpay_order_id, razorpay_payment_id, razorpay_signature } =
@@ -33,25 +61,69 @@ export async function POST(req: NextRequest) {
   // Verify signature matches expected value
   const valid = expected === razorpay_signature;
 
+  let updatedOrder: PaymentOrderRow | null = null;
+  let dbUpdated = false;
+  let dbWarning: string | undefined;
+  let subscription: SubscriptionRow | null = null;
+
   if (valid) {
-    // Update order status in database
-    const { error: updateError } = await supabase
+    // Update order status in database and return updated row
+    const { data, error: updateError } = await supabase
       .from("payment_orders")
       .update({
         status: "captured",
         razorpay_payment_id: razorpay_payment_id,
         updated_at: new Date().toISOString(),
       })
-      .eq("razorpay_order_id", razorpay_order_id);
+      .eq("razorpay_order_id", razorpay_order_id)
+      .select(
+        "id, razorpay_order_id, razorpay_payment_id, amount, currency, status, user_id, receipt, created_at, updated_at"
+      )
+      .single<PaymentOrderRow>();
 
     if (updateError) {
       console.error("Failed to update payment order:", updateError);
-      return NextResponse.json(
-        { valid: true, warning: "Payment verified but database update failed" },
-        { status: 200 }
-      );
+      dbWarning = "Payment verified but database update failed";
+    } else if (data) {
+      updatedOrder = data;
+      dbUpdated = true;
+
+      // Create subscription record (email currently unknown unless stored elsewhere)
+      const { data: sub, error: subError } = await supabase
+        .from("subscriptions")
+        .insert({
+          user_id: updatedOrder.user_id ?? null,
+          email: null,
+          plan_id: "one-time",
+          plan_name: "Manual Plan",
+          razorpay_order_id,
+          razorpay_payment_id,
+          status: "active",
+        })
+        .select()
+        .single<SubscriptionRow>();
+
+      if (subError) {
+        console.error("Failed to create subscription:", subError);
+      } else {
+        subscription = sub;
+      }
     }
   }
 
-  return NextResponse.json({ valid }, { status: 200 });
+  return NextResponse.json(
+    {
+      valid,
+      verification: {
+        expected,
+        provided: razorpay_signature,
+        matches: valid,
+      },
+      order: updatedOrder,
+      subscription,
+      dbUpdated,
+      warning: dbWarning,
+    },
+    { status: 200 }
+  );
 }

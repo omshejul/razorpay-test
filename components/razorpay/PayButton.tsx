@@ -4,20 +4,33 @@ import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 
-export default function PayButton({ amount }: { amount: number }) {
+interface PayButtonProps {
+  amount: number; // still used for button label
+  planId?: string;
+  planName?: string;
+  onSuccess?: (info: { valid: boolean; order?: unknown }) => void;
+}
+
+export default function PayButton({
+  amount,
+  planId,
+  planName,
+  onSuccess,
+}: PayButtonProps) {
   const [loading, setLoading] = useState(false);
+  const [completed, setCompleted] = useState(false);
   const { data: session } = useSession();
 
   async function handlePay() {
     try {
       setLoading(true);
 
-      // 1) ask server to create an order
+      // 1) ask server to create an order using trusted server-side pricing
       const orderRes = await fetch("/api/razorpay/order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          amount, // rupees
+          planId,
           userEmail: session?.user?.email || null,
         }),
       });
@@ -28,12 +41,15 @@ export default function PayButton({ amount }: { amount: number }) {
       // 2) open Razorpay Checkout
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID!,
-        amount: order.amount, // paise from server
+        amount: order.amount, // from server (paise)
         currency: order.currency,
-        name: "Your Store",
-        description: "Order payment",
+        name: planName || "Your Store",
+        description: planName ? `${planName} subscription` : "Order payment",
         order_id: order.id,
-        prefill: { name: "Om", email: "contact@omshejul.com" },
+        prefill: {
+          name: session?.user?.name || "User",
+          email: session?.user?.email || undefined,
+        },
         handler: async (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;
@@ -45,12 +61,12 @@ export default function PayButton({ amount }: { amount: number }) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(response),
           });
-          const { valid } = await verifyRes.json();
-          if (valid) {
-            alert("Payment verified");
-          } else {
-            alert("Verification failed");
+          const data = await verifyRes.json();
+          if (data.valid) {
+            setCompleted(true);
+            onSuccess?.(data);
           }
+          alert(data.valid ? "Payment verified" : "Verification failed");
         },
       };
 
@@ -71,8 +87,13 @@ export default function PayButton({ amount }: { amount: number }) {
   }
 
   return (
-    <Button onClick={handlePay} disabled={loading} variant="default" size="lg">
-      {loading ? "Processing..." : `Pay ₹${amount}`}
+    <Button
+      onClick={handlePay}
+      disabled={loading || completed}
+      variant="default"
+      size="lg"
+    >
+      {completed ? "Purchased" : loading ? "Processing..." : `Pay ₹${amount}`}
     </Button>
   );
 }

@@ -34,6 +34,7 @@ const plans = [
 
 export default function ProductPage() {
   const [selectedPlan, setSelectedPlan] = useState(plans[1]); // Default to Pro plan
+  const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null);
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
@@ -53,11 +54,18 @@ export default function ProductPage() {
                 selectedPlan.id === plan.id
                   ? "ring-2 ring-primary border-primary"
                   : "hover:border-primary/50"
-              }`}
+              } ${purchasedPlanId === plan.id ? "opacity-60" : ""}`}
               onClick={() => setSelectedPlan(plan)}
             >
               <CardHeader>
-                <CardTitle className="text-xl">{plan.name}</CardTitle>
+                <CardTitle className="text-xl flex items-center justify-between">
+                  <span>{plan.name}</span>
+                  {purchasedPlanId === plan.id && (
+                    <span className="text-xs rounded-full bg-green-100 text-green-700 px-2 py-0.5">
+                      Purchased
+                    </span>
+                  )}
+                </CardTitle>
                 <CardDescription>{plan.description}</CardDescription>
               </CardHeader>
               <CardContent>
@@ -98,7 +106,12 @@ export default function ProductPage() {
               <p className="text-sm text-muted-foreground">
                 You will be redirected to complete payment securely.
               </p>
-              <PayButton amount={selectedPlan.price} />
+              <PayButton
+                amount={selectedPlan.price}
+                planId={selectedPlan.id}
+                planName={selectedPlan.name}
+                onSuccess={() => setPurchasedPlanId(selectedPlan.id)}
+              />
             </div>
           </CardContent>
         </Card>
