@@ -4,7 +4,9 @@
  * Generate favicons from logo.svg
  * 
  * Prerequisites:
- * npm install sharp
+ * npm install -g sharp-cli
+ * OR
+ * npm install sharp (locally)
  * 
  * Usage:
  * node generate-favicons.js
@@ -12,16 +14,30 @@
 
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
-// Check if sharp is available
+// Check if sharp is available (locally first, then globally)
 let sharp;
+let useGlobalSharp = false;
+
 try {
+  // Try local sharp first
   sharp = require('sharp');
+  console.log('Using local sharp installation');
 } catch (error) {
-  console.log('Sharp not found. Installing...');
-  console.log('Run: npm install sharp');
-  console.log('Then run this script again.');
-  process.exit(1);
+  try {
+    // Check if sharp-cli is available globally
+    execSync('sharp --version', { stdio: 'ignore' });
+    useGlobalSharp = true;
+    console.log('Using global sharp-cli installation');
+  } catch (globalError) {
+    console.log('Sharp not found locally or globally.');
+    console.log('Install options:');
+    console.log('1. Local: npm install sharp');
+    console.log('2. Global: npm install -g sharp-cli');
+    console.log('Then run this script again.');
+    process.exit(1);
+  }
 }
 
 const sizes = [16, 32, 48, 64, 128, 256, 512];
@@ -29,51 +45,98 @@ const appleSizes = [180]; // For apple-touch-icon
 const inputSvg = path.join(__dirname, 'public', 'logo.svg');
 const outputDir = path.join(__dirname, 'public');
 
+async function generateWithLocalSharp() {
+  const svgBuffer = fs.readFileSync(inputSvg);
+  
+  console.log('Generating favicons with local sharp...');
+  
+  // Generate different sizes
+  for (const size of sizes) {
+    const outputFile = path.join(outputDir, `favicon-${size}x${size}.png`);
+    
+    await sharp(svgBuffer)
+      .resize(size, size)
+      .png()
+      .toFile(outputFile);
+    
+    console.log(`✓ Generated favicon-${size}x${size}.png`);
+  }
+
+  // Generate apple touch icons
+  for (const size of appleSizes) {
+    const outputFile = path.join(outputDir, `apple-touch-icon.png`);
+    const precomposedFile = path.join(outputDir, `apple-touch-icon-precomposed.png`);
+    
+    await sharp(svgBuffer)
+      .resize(size, size)
+      .png()
+      .toFile(outputFile);
+
+    await sharp(svgBuffer)
+      .resize(size, size) 
+      .png()
+      .toFile(precomposedFile);
+      
+    console.log(`✓ Generated apple-touch-icon.png and apple-touch-icon-precomposed.png (${size}x${size})`);
+  }
+  
+  // Generate favicon.ico (32x32)
+  const icoFile = path.join(outputDir, 'favicon.ico');
+  await sharp(svgBuffer)
+    .resize(32, 32)
+    .png()
+    .toFile(icoFile);
+  
+  console.log('✓ Generated favicon.ico');
+}
+
+function generateWithGlobalSharp() {
+  console.log('Generating favicons with global sharp-cli...');
+  
+  // Generate different sizes
+  for (const size of sizes) {
+    const outputFile = path.join(outputDir, `favicon-${size}x${size}.png`);
+    
+    try {
+      execSync(`sharp -i "${inputSvg}" -o "${outputFile}" resize ${size} ${size} --format png`, { stdio: 'inherit' });
+      console.log(`✓ Generated favicon-${size}x${size}.png`);
+    } catch (error) {
+      console.error(`Error generating ${size}x${size} favicon:`, error.message);
+    }
+  }
+
+  // Generate apple touch icons
+  for (const size of appleSizes) {
+    const outputFile = path.join(outputDir, `apple-touch-icon.png`);
+    const precomposedFile = path.join(outputDir, `apple-touch-icon-precomposed.png`);
+    
+    try {
+      execSync(`sharp -i "${inputSvg}" -o "${outputFile}" resize ${size} ${size} --format png`, { stdio: 'inherit' });
+      execSync(`sharp -i "${inputSvg}" -o "${precomposedFile}" resize ${size} ${size} --format png`, { stdio: 'inherit' });
+      console.log(`✓ Generated apple-touch-icon.png and apple-touch-icon-precomposed.png (${size}x${size})`);
+    } catch (error) {
+      console.error(`Error generating apple touch icons:`, error.message);
+    }
+  }
+  
+  // Generate favicon.ico (32x32)
+  const icoFile = path.join(outputDir, 'favicon.ico');
+  try {
+    execSync(`sharp -i "${inputSvg}" -o "${icoFile}" resize 32 32 --format png`, { stdio: 'inherit' });
+    console.log('✓ Generated favicon.ico');
+  } catch (error) {
+    console.error('Error generating favicon.ico:', error.message);
+  }
+}
+
 async function generateFavicons() {
   try {
-    // Read the SVG file
-    const svgBuffer = fs.readFileSync(inputSvg);
-    
-    console.log('Generating favicons...');
-    
-    // Generate different sizes
-    for (const size of sizes) {
-      const outputFile = path.join(outputDir, `favicon-${size}x${size}.png`);
-      
-      await sharp(svgBuffer)
-        .resize(size, size)
-        .png()
-        .toFile(outputFile);
-      
-      console.log(`✓ Generated favicon-${size}x${size}.png`);
-    }
-
-    // Generate apple touch icons
-    for (const size of appleSizes) {
-      const outputFile = path.join(outputDir, `apple-touch-icon.png`);
-      const precomposedFile = path.join(outputDir, `apple-touch-icon-precomposed.png`);
-      
-      await sharp(svgBuffer)
-        .resize(size, size)
-        .png()
-        .toFile(outputFile);
-
-      await sharp(svgBuffer)
-        .resize(size, size) 
-        .png()
-        .toFile(precomposedFile);
-        
-      console.log(`✓ Generated apple-touch-icon.png and apple-touch-icon-precomposed.png (${size}x${size})`);
+    if (useGlobalSharp) {
+      generateWithGlobalSharp();
+    } else {
+      await generateWithLocalSharp();
     }
     
-    // Generate favicon.ico (32x32)
-    const icoFile = path.join(outputDir, 'favicon.ico');
-    await sharp(svgBuffer)
-      .resize(32, 32)
-      .png()
-      .toFile(icoFile);
-    
-    console.log('✓ Generated favicon.ico');
     console.log(`
 🎉 All favicons generated successfully!
 
