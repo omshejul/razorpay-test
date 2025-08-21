@@ -46,9 +46,13 @@ export default function ProductPage() {
         console.log("subscriptions", json);
         const subs: Array<{ plan_id: string; status: string }> =
           json.subscriptions || [];
-        const activeIds = subs
-          .filter((s) => s.status === "active")
-          .map((s) => s.plan_id);
+        const activeIds = Array.from(
+          new Set(
+            subs
+              .filter((s) => s.status === "active" && s.plan_id)
+              .map((s) => s.plan_id)
+          )
+        );
         if (isMounted) setPurchasedPlanIds(activeIds);
       } finally {
         // no-op
@@ -134,7 +138,6 @@ export default function ProductPage() {
                 amount={selectedPlan.price}
                 planId={selectedPlan.id}
                 planName={selectedPlan.name}
-                mode="recurring"
                 onSuccess={() =>
                   setPurchasedPlanIds((prev) =>
                     prev.includes(selectedPlan.id)
