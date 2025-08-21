@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import PayButton from "@/components/razorpay/PayButton";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const plans = [
   {
@@ -35,6 +35,28 @@ const plans = [
 export default function ProductPage() {
   const [selectedPlan, setSelectedPlan] = useState(plans[1]); // Default to Pro plan
   const [purchasedPlanId, setPurchasedPlanId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadSubscriptions = async () => {
+      try {
+        const res = await fetch("/api/subscriptions/me", { cache: "no-store" });
+        if (!res.ok) return;
+        const json = await res.json();
+        console.log("subscriptions", json);
+        const subs: Array<{ plan_id: string; status: string }> =
+          json.subscriptions || [];
+        const active = subs.find((s) => s.status === "active");
+        if (isMounted && active) setPurchasedPlanId(active.plan_id);
+      } finally {
+        // no-op
+      }
+    };
+    loadSubscriptions();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <div className="container mx-auto px-4 py-10 max-w-4xl">
