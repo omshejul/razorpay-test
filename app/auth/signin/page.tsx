@@ -12,6 +12,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Loader } from "lucide-react";
 
 export default function SignIn() {
   const [providers, setProviders] = useState<Record<
@@ -39,8 +40,11 @@ export default function SignIn() {
 
   if (!providers) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">Loading...</div>
+      <div className="min-h-[80vh] flex items-center justify-center">
+        <div className="text-center flex items-center">
+          <Loader className="h-8 w-8 animate-spin mr-2" />
+          <span>Loading...</span>
+        </div>
       </div>
     );
   }

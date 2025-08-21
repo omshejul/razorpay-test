@@ -10,14 +10,18 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import ProductPage from "./product/page";
+import { Loader } from "lucide-react";
 
 export default function Home() {
   const { data: session, status } = useSession();
 
   if (status === "loading") {
     return (
-      <main className="container mx-auto px-4 py-8">
-        <div>Loading...</div>
+      <main className="container mx-auto px-4 py-8 min-h-[80vh] flex items-center justify-center">
+        <div className="flex items-center">
+          <Loader className="h-8 w-8 animate-spin" />
+          <span className="ml-2">Loading...</span>
+        </div>
       </main>
     );
   }
