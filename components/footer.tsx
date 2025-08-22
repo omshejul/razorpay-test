@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -14,24 +16,24 @@ export function Footer() {
               <h4 className="text-sm font-medium">Legal</h4>
               <ul className="space-y-1">
                 <li>
-                  <a
+                  <Link
                     href="https://merchant.razorpay.com/policy/R7S7QKAASdLeE7/terms"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Terms
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a
+                  <Link
                     href="https://merchant.razorpay.com/policy/R7S7QKAASdLeE7/privacy"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Privacy
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -39,24 +41,24 @@ export function Footer() {
               <h4 className="text-sm font-medium">Policies</h4>
               <ul className="space-y-1">
                 <li>
-                  <a
+                  <Link
                     href="https://merchant.razorpay.com/policy/R7S7QKAASdLeE7/refund"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Refunds
-                  </a>
+                  </Link>
                 </li>
                 <li>
-                  <a
+                  <Link
                     href="https://merchant.razorpay.com/policy/R7S7QKAASdLeE7/shipping"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Shipping
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -64,23 +66,23 @@ export function Footer() {
               <h4 className="text-sm font-medium">Support</h4>
               <ul className="space-y-1">
                 <li>
-                  <a
+                  <Link
                     href="https://merchant.razorpay.com/policy/R7S7QKAASdLeE7/contact_us"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-sm text-muted-foreground hover:text-primary transition-colors"
                   >
                     Contact
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
           </div>
         </div>
       </div>
-        <div className=" border-t p-4 text-center text-sm text-muted-foreground">
-          © {new Date().getFullYear()} Arthkin. All rights reserved.
-        </div>
+      <div className=" border-t p-4 text-center text-sm text-muted-foreground">
+        © {new Date().getFullYear()} Arthkin. All rights reserved.
+      </div>
     </footer>
   );
 }
