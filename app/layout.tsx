@@ -7,6 +7,7 @@ import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import Script from "next/script";
+import { Suspense } from "react";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -75,21 +76,23 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          <PostHogProvider>
-            <Providers>
-              <div className="relative flex min-h-screen flex-col">
-                <Navbar />
-                <main className="flex-1">
-                  {children}
-                  <Script
-                    src="https://checkout.razorpay.com/v1/checkout.js"
-                    strategy="afterInteractive"
-                  />
-                </main>
-                <Footer />
-              </div>
-            </Providers>
-          </PostHogProvider>
+          <Suspense fallback={null}>
+            <PostHogProvider>
+              <Providers>
+                <div className="relative flex min-h-screen flex-col">
+                  <Navbar />
+                  <main className="flex-1">
+                    {children}
+                    <Script
+                      src="https://checkout.razorpay.com/v1/checkout.js"
+                      strategy="afterInteractive"
+                    />
+                  </main>
+                  <Footer />
+                </div>
+              </Providers>
+            </PostHogProvider>
+          </Suspense>
         </ThemeProvider>
       </body>
     </html>
