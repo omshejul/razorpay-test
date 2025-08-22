@@ -1,6 +1,6 @@
 "use client";
 
-import posthog from 'posthog-js';
+import { Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -11,6 +11,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import PayButton from "@/components/razorpay/PayButton";
 import { useEffect, useState } from "react";
+import { trackEvent } from "@/lib/posthog";
 
 const plans = [
   {
@@ -33,7 +34,7 @@ const plans = [
   },
 ];
 
-export default function ProductPage() {
+function ProductContent() {
   const [selectedPlan, setSelectedPlan] = useState(plans[1]); // Default to Pro plan
   const [purchasedPlanIds, setPurchasedPlanIds] = useState<string[]>([]);
 
@@ -86,7 +87,7 @@ export default function ProductPage() {
               } ${purchasedPlanIds.includes(plan.id) ? "opacity-60" : ""}`}
               onClick={() => {
                 setSelectedPlan(plan);
-                posthog.capture('plan_selected', {
+                trackEvent("plan_selected", {
                   plan_id: plan.id,
                   plan_name: plan.name,
                   plan_price: plan.price,
@@ -148,7 +149,7 @@ export default function ProductPage() {
                 planName={selectedPlan.name}
                 disabled={purchasedPlanIds.length > 0}
                 onSuccess={() => {
-                  posthog.capture('plan_purchase_success', {
+                  trackEvent("plan_purchase_success", {
                     plan_id: selectedPlan.id,
                     plan_name: selectedPlan.name,
                     plan_price: selectedPlan.price,
@@ -165,5 +166,13 @@ export default function ProductPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+export default function ProductPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <ProductContent />
+    </Suspense>
   );
 }
