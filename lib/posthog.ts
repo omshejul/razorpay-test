@@ -12,7 +12,7 @@ export enum AnalyticsEvents {
 
 // Properties interface for type safety
 export interface AnalyticsProperties {
-  [key: string]: any;
+  [key: string]: string | number | boolean | null | undefined;
 }
 
 export const trackEvent = (
