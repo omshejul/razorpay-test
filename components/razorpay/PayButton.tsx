@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import posthog from 'posthog-js';
 
 interface PayButtonProps {
   amount: number; // still used for button label
@@ -27,6 +28,11 @@ export default function PayButton({
     if (disabled) return;
     try {
       setLoading(true);
+      posthog.capture('payment_initiated', {
+        planId,
+        planName,
+        amount,
+      });
 
       // 1) ask server to create an order using trusted server-side pricing
       const orderRes = await fetch("/api/razorpay/order", {
@@ -66,6 +72,13 @@ export default function PayButton({
           });
           const data = await verifyRes.json();
           if (data.valid) {
+            posthog.capture('payment_succeeded', {
+              planId,
+              planName,
+              order_id: response.razorpay_order_id,
+              payment_id: response.razorpay_payment_id,
+              amount: order.amount,
+            });
             setCompleted(true);
             onSuccess?.(data);
           }

@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from 'posthog-js';
 import {
   Card,
   CardContent,
@@ -83,7 +84,14 @@ export default function ProductPage() {
                   ? "ring-2 ring-primary border-primary"
                   : "hover:border-primary/50"
               } ${purchasedPlanIds.includes(plan.id) ? "opacity-60" : ""}`}
-              onClick={() => setSelectedPlan(plan)}
+              onClick={() => {
+                setSelectedPlan(plan);
+                posthog.capture('plan_selected', {
+                  plan_id: plan.id,
+                  plan_name: plan.name,
+                  plan_price: plan.price,
+                });
+              }}
             >
               <CardHeader>
                 <CardTitle className="text-xl flex items-center justify-between">
@@ -139,13 +147,18 @@ export default function ProductPage() {
                 planId={selectedPlan.id}
                 planName={selectedPlan.name}
                 disabled={purchasedPlanIds.length > 0}
-                onSuccess={() =>
+                onSuccess={() => {
+                  posthog.capture('plan_purchase_success', {
+                    plan_id: selectedPlan.id,
+                    plan_name: selectedPlan.name,
+                    plan_price: selectedPlan.price,
+                  });
                   setPurchasedPlanIds((prev) =>
                     prev.includes(selectedPlan.id)
                       ? prev
                       : [...prev, selectedPlan.id]
-                  )
-                }
+                  );
+                }}
               />
             </div>
           </CardContent>

@@ -1,5 +1,6 @@
 "use client";
 
+import posthog from 'posthog-js';
 import { getProviders, signIn, getSession } from "next-auth/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -62,6 +63,7 @@ export default function SignIn() {
   }
 
   const handleSignIn = async (providerId: string) => {
+    posthog.capture('sign_in_provider_clicked', { provider_id: providerId });
     setIsLoading(true);
     try {
       await signIn(providerId, { callbackUrl: "/" });

@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { signOut } from "next-auth/react";
+import posthog from 'posthog-js';
 
 export function Navbar() {
   const { data: session } = useSession();
@@ -72,13 +73,18 @@ export function Navbar() {
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => signOut()}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      posthog.capture('user-signed-out', { user_email: session.user.email });
+                      signOut();
+                    }}
+                  >
                     Sign out
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
-              <Button asChild variant="outline">
+              <Button asChild variant="outline" onClick={() => posthog.capture('sign-in-button-clicked')}>
                 <Link href="/auth/signin">Sign in</Link>
               </Button>
             )}
